@@ -86,7 +86,6 @@ countries_file = os.path.join(__location__, 'Countries.csv')
 city_processor = CityProcessor(cities_file, countries_file)
 
 
-# Print temperature statistics for Italy
 italy_temp_stats = city_processor.get_country_temperature_statistics("Italy")
 if italy_temp_stats:
     print("Temperature statistics for Italy:")
@@ -95,7 +94,6 @@ if italy_temp_stats:
     print(f"Max Temperature = {italy_temp_stats['max_temperature']}")
 print()
 
-# Print temperature statistics for Sweden
 sweden_temp_stats = city_processor.get_country_temperature_statistics("Sweden")
 if sweden_temp_stats:
     print("Temperature statistics for Sweden:")
@@ -104,7 +102,12 @@ if sweden_temp_stats:
     print(f"Max Temperature = {sweden_temp_stats['max_temperature']}")
 print()
 
-# Print cities with latitude >= 60
 high_latitude_cities = city_processor.filter_cities_by_latitude(60)
 print("Cities with latitude >= 60:")
 print(", ".join(high_latitude_cities))
+print()
+
+latitude_stats = city_processor.get_country_latitude_statistics()
+for country, stats in latitude_stats.items():
+    print(f"{country}: Min Latitude = {stats['min_latitude']}, Max Latitude = {stats['max_latitude']}")
+print()
