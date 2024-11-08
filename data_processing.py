@@ -1,113 +1,85 @@
 import csv
 import os
 
+
+class Table:
+    def __init__(self, table_name, table):
+        self.table_name = table_name
+        self.table = table
+
+    def filter(self, condition):
+        return [item for item in self.table if condition(item)]
+
+    def aggregate(self, aggregation_key, aggregation_function):
+        values = [float(item[aggregation_key]) for item in self.table if aggregation_key in item]
+        return aggregation_function(values)
+
+    def __str__(self):
+        return f"Table: {self.table_name}, with {len(self.table)} entries"
+
+
+class TableDB:
+    def __init__(self):
+        self.table_database = []
+
+    def insert(self, table):
+        if self.search(table.table_name) == -1:
+            self.table_database.append(table)
+        else:
+            print(f"{table.table_name}: Duplicated table entry")
+
+    def search(self, table_name):
+        for table in self.table_database:
+            if table.table_name == table_name:
+                return table
+        return -1
+
+
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 
 
-class City:
-    def __init__(self, name, country, latitude, temperature):
-        self.name = name
-        self.country = country
-        self.latitude = float(latitude)
-        self.temperature = float(temperature)
+def load_csv_data(filename):
+    filepath = os.path.join(__location__, filename)
+    with open(filepath) as f:
+        rows = csv.DictReader(f)
+        return [dict(row) for row in rows]
 
 
-class Country:
-    def __init__(self, name):
-        self.name = name
-        self.cities = []
+cities = load_csv_data('Cities.csv')
+countries = load_csv_data('Countries.csv')
 
-    def add_city(self, city):
-        self.cities.append(city)
+cities_table = Table("cities", cities)
+countries_table = Table("countries", countries)
 
-    def get_min_max_latitude(self):
-        latitudes = [city.latitude for city in self.cities]
-        if latitudes:
-            return min(latitudes), max(latitudes)
-        return None, None
+db = TableDB()
+db.insert(cities_table)
+db.insert(countries_table)
 
-    def get_avg_temperature(self):
-        temps = [city.temperature for city in self.cities]
-        if temps:
-            return sum(temps) / len(temps)
-        return None
+cities_in_italy = cities_table.filter(lambda x: x['country'] == 'Italy')
+cities_in_sweden = cities_table.filter(lambda x: x['country'] == 'Sweden')
 
-    def get_min_temperature(self):
-        temps = [city.temperature for city in self.cities]
-        return min(temps) if temps else None
+cities_italy_table = Table("italy_cities", cities_in_italy)
+cities_sweden_table = Table("sweden_cities", cities_in_sweden)
 
-    def get_max_temperature(self):
-        temps = [city.temperature for city in self.cities]
-        return max(temps) if temps else None
+db.insert(cities_italy_table)
+db.insert(cities_sweden_table)
 
+avg_temp_italy = cities_italy_table.aggregate("temperature", lambda x: sum(x) / len(x))
+print(f"The average temperature of all cities in Italy:\n{avg_temp_italy}\n")
 
-class CityProcessor:
-    def __init__(self, cities_file, countries_file):
-        self.cities = []
-        self.countries = {}
-        self.load_data(cities_file, countries_file)
+avg_temp_sweden = cities_sweden_table.aggregate("temperature", lambda x: sum(x) / len(x))
+print(f"The average temperature of all cities in Sweden:\n{avg_temp_sweden}\n")
 
-    def load_data(self, cities_file, countries_file):
-        with open(cities_file) as f:
-            rows = csv.DictReader(f)
-            for row in rows:
-                city = City(row['city'], row['country'], row['latitude'], row['temperature'])
-                self.cities.append(city)
-                if city.country not in self.countries:
-                    self.countries[city.country] = Country(city.country)
-                self.countries[city.country].add_city(city)
+min_temp_italy = cities_italy_table.aggregate("temperature", min)
+print(f"The minimum temperature of all cities in Italy:\n{min_temp_italy}\n")
 
-    def get_country_latitude_statistics(self):
-        stats = {}
-        for country_name, country in self.countries.items():
-            min_lat, max_lat = country.get_min_max_latitude()
-            stats[country_name] = {
-                'min_latitude': min_lat,
-                'max_latitude': max_lat
-            }
-        return stats
+max_temp_sweden = cities_sweden_table.aggregate("temperature", max)
+print(f"The maximum temperature of all cities in Sweden:\n{max_temp_sweden}\n")
 
-    def get_country_temperature_statistics(self, country_name):
-        if country_name in self.countries:
-            country = self.countries[country_name]
-            return {
-                'average_temperature': country.get_avg_temperature(),
-                'min_temperature': country.get_min_temperature(),
-                'max_temperature': country.get_max_temperature()
-            }
-        return None
+max_latitude = cities_table.aggregate("latitude", max)
+print("Maximum latitude for all cities:")
+print(f"{max_latitude}\n")
 
-    def filter_cities_by_latitude(self, min_latitude):
-        return [city.name for city in self.cities if city.latitude >= min_latitude]
-
-
-cities_file = os.path.join(__location__, 'Cities.csv')
-countries_file = os.path.join(__location__, 'Countries.csv')
-city_processor = CityProcessor(cities_file, countries_file)
-
-
-italy_temp_stats = city_processor.get_country_temperature_statistics("Italy")
-if italy_temp_stats:
-    print("Temperature statistics for Italy:")
-    print(f"Average Temperature = {italy_temp_stats['average_temperature']}")
-    print(f"Min Temperature = {italy_temp_stats['min_temperature']}")
-    print(f"Max Temperature = {italy_temp_stats['max_temperature']}")
-print()
-
-sweden_temp_stats = city_processor.get_country_temperature_statistics("Sweden")
-if sweden_temp_stats:
-    print("Temperature statistics for Sweden:")
-    print(f"Average Temperature = {sweden_temp_stats['average_temperature']}")
-    print(f"Min Temperature = {sweden_temp_stats['min_temperature']}")
-    print(f"Max Temperature = {sweden_temp_stats['max_temperature']}")
-print()
-
-high_latitude_cities = city_processor.filter_cities_by_latitude(60)
-print("Cities with latitude >= 60:")
-print(", ".join(high_latitude_cities))
-print()
-
-latitude_stats = city_processor.get_country_latitude_statistics()
-for country, stats in latitude_stats.items():
-    print(f"{country}: Min Latitude = {stats['min_latitude']}, Max Latitude = {stats['max_latitude']}")
-print()
+min_latitude = cities_table.aggregate("latitude", min)
+print("Minimum latitude for all cities:")
+print(f"{min_latitude}\n")
